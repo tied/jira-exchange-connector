@@ -22,6 +22,11 @@
         <context>jira-exchange-connector</context>
     </web-resource>
     
+    <web-resource name="Admin Web Resources" key="resources"> 
+	  <dependency>com.atlassian.auiplugin:ajs</dependency> 
+	  <resource type="download" name="admin.js" location="admin.js"/> 
+	</web-resource>
+	
     <servlet key="jiraExchangeConnector-admin-servlet"
 		class="de.equalIT.jiraExchangeConnector.adminUI.AdminServlet">
 		<url-pattern>/jiraExchangeConnector</url-pattern>

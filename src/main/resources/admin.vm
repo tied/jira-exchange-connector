@@ -2,7 +2,7 @@
   <head>
     <title>$i18n.getText("xproduct.admin.label")</title>
     <meta name="decorator" content="atl.admin" />
-    $webResourceManager.requireResource("com.atlassian.auiplugin:ajs")
+    $webResourceManager.requireResource("de.equalIT.jiraExchangeConnector.jira-exchange-connector:resources")
   </head>
   <body>
     <form id="admin" class="aui">
