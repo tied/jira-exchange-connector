@@ -1,21 +1,53 @@
 <html>
   <head>
-    <title>$i18n.getText("xproduct.admin.label")</title>
+    <title>$i18n.getText("de.equalIT.jiraExchangeConnector.admin.label")</title>
     <meta name="decorator" content="atl.admin" />
     $webResourceManager.requireResource("de.equalIT.jiraExchangeConnector.jira-exchange-connector:resources")
   </head>
   <body>
     <form id="admin" class="aui">
       <div class="field-group">
-        <label for="name">$i18n.getText("xproduct.admin.name.label")</label>
-        <input type="text" id="name" name="name" class="text">
+        <label for="name">$i18n.getText("de.equalIT.jiraExchangeConnector.admin.active.label")</label>
+        <input type="checkbox" id="active" name="active" class="checkbox">
       </div>
       <div class="field-group">
-        <label for="time">$i18n.getText("xproduct.admin.time.label")</label>
-        <input type="text" id="time" name="time" class="text">
+        <label for="name">$i18n.getText("de.equalIT.jiraExchangeConnector.admin.imapServer.label")</label>
+        <input type="text" id="imapServer" name="imapServer" class="text">
       </div>
       <div class="field-group">
-        <input type="submit" value="$i18n.getText("xproduct.admin.save.label")" class="button">
+        <label for="time">$i18n.getText("de.equalIT.jiraExchangeConnector.admin.imapUserName.label")</label>
+        <input type="text" id="imapUserName" name="imapUserName" class="text">
+      </div>
+      <div class="field-group">
+        <label for="time">$i18n.getText("de.equalIT.jiraExchangeConnector.admin.imapPassword.label")</label>
+        <input type="text" id="imapPassword" name="imapPassword" class="text">
+      </div>
+      <div class="field-group">
+        <label for="time">$i18n.getText("de.equalIT.jiraExchangeConnector.admin.imapInboxName.label")</label>
+        <input type="text" id="imapInboxName" name="imapInboxName" class="text">
+      </div>
+      <div class="field-group">
+        <label for="time">$i18n.getText("de.equalIT.jiraExchangeConnector.admin.projectName.label")</label>
+        <input type="text" id="projectName" name="projectName" class="text">
+      </div>
+      <div class="field-group">
+        <label for="time">$i18n.getText("de.equalIT.jiraExchangeConnector.admin.issueOwner.label")</label>
+        <input type="text" id="issueOwner" name="issueOwner" class="text">
+      </div>
+      <div class="field-group">
+        <label for="time">$i18n.getText("de.equalIT.jiraExchangeConnector.admin.issueType.label")</label>
+        <input type="text" id="issueType" name="issueType" class="text">
+      </div>
+      <div class="field-group">
+        <label for="time">$i18n.getText("de.equalIT.jiraExchangeConnector.admin.issueStatus.label")</label>
+        <input type="text" id="issueStatus" name="issueStatus" class="text">
+      </div>
+      <div class="field-group">
+        <label for="name">$i18n.getText("de.equalIT.jiraExchangeConnector.admin.imapDeleteMessage.label")</label>
+        <input type="checkbox" id="imapDeleteMessage" name="imapDeleteMessage" class="checkbox">
+      </div>
+      <div class="field-group">
+        <input type="submit" value="$i18n.getText("de.equalIT.jiraExchangeConnector.admin.save.label")" class="button">
       </div>
     </form>
   </body>

@@ -34,6 +34,11 @@
     </attributes>
   </classpathentry>
   <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+  <classpathentry kind="var" path="M2_REPO/com/google/code/gson/gson/2.2.2-atlassian-1/gson-2.2.2-atlassian-1.jar" sourcepath="M2_REPO/com/google/code/gson/gson/2.2.2-atlassian-1/gson-2.2.2-atlassian-1-sources.jar">
+    <attributes>
+      <attribute value="jar:file:/home/vjay/.m2/repository/com/google/code/gson/gson/2.2.2-atlassian-1/gson-2.2.2-atlassian-1-javadoc.jar!/" name="javadoc_location"/>
+    </attributes>
+  </classpathentry>
   <classpathentry kind="var" path="M2_REPO/com/atlassian/sal/sal-api/3.0.2/sal-api-3.0.2.jar" sourcepath="M2_REPO/com/atlassian/sal/sal-api/3.0.2/sal-api-3.0.2-sources.jar">
     <attributes>
       <attribute value="jar:file:/home/vjay/.m2/repository/com/atlassian/sal/sal-api/3.0.2/sal-api-3.0.2-javadoc.jar!/" name="javadoc_location"/>
@@ -382,11 +387,6 @@
   <classpathentry kind="var" path="M2_REPO/com/atlassian/sourcemap/sourcemap/1.7.6/sourcemap-1.7.6.jar" sourcepath="M2_REPO/com/atlassian/sourcemap/sourcemap/1.7.6/sourcemap-1.7.6-sources.jar">
     <attributes>
       <attribute value="jar:file:/home/vjay/.m2/repository/com/atlassian/sourcemap/sourcemap/1.7.6/sourcemap-1.7.6-javadoc.jar!/" name="javadoc_location"/>
-    </attributes>
-  </classpathentry>
-  <classpathentry kind="var" path="M2_REPO/com/google/code/gson/gson/2.2.2-atlassian-1/gson-2.2.2-atlassian-1.jar" sourcepath="M2_REPO/com/google/code/gson/gson/2.2.2-atlassian-1/gson-2.2.2-atlassian-1-sources.jar">
-    <attributes>
-      <attribute value="jar:file:/home/vjay/.m2/repository/com/google/code/gson/gson/2.2.2-atlassian-1/gson-2.2.2-atlassian-1-javadoc.jar!/" name="javadoc_location"/>
     </attributes>
   </classpathentry>
   <classpathentry kind="var" path="M2_REPO/com/atlassian/plugins/atlassian-plugins-webresource-compiler-gcc/3.5.34/atlassian-plugins-webresource-compiler-gcc-3.5.34.jar" sourcepath="M2_REPO/com/atlassian/plugins/atlassian-plugins-webresource-compiler-gcc/3.5.34/atlassian-plugins-webresource-compiler-gcc-3.5.34-sources.jar">
