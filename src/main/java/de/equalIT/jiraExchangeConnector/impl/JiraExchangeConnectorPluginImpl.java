@@ -1,6 +1,9 @@
 package de.equalIT.jiraExchangeConnector.impl;
 
+import java.io.File;
 import java.util.Collection;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 
 import javax.inject.Inject;
@@ -17,10 +20,11 @@ import org.apache.log4j.Logger;
 
 import com.atlassian.jira.bc.issue.IssueService;
 import com.atlassian.jira.bc.issue.IssueService.CreateValidationResult;
+import com.atlassian.jira.bc.issue.IssueService.DeleteValidationResult;
 import com.atlassian.jira.bc.issue.IssueService.IssueResult;
 import com.atlassian.jira.component.ComponentAccessor;
 import com.atlassian.jira.issue.Issue;
-import com.atlassian.jira.issue.IssueInputParameters;
+import com.atlassian.jira.issue.attachment.CreateAttachmentParamsBean;
 import com.atlassian.jira.issue.issuetype.IssueType;
 import com.atlassian.jira.issue.status.Status;
 import com.atlassian.jira.project.Project;
@@ -39,7 +43,7 @@ import com.sun.mail.imap.IMAPFolder;
 import de.equalIT.jiraExchangeConnector.api.JiraExchangeConnectorPlugin;
 
 @ExportAsService({JiraExchangeConnectorPlugin.class})
-@Named("myPluginComponent")
+@Named("JiraExchangeConnectorPluginComponent")
 public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeConnectorPlugin {
 	protected static final Logger logger = LogManager.getLogger("atlassian.plugin");
 
@@ -129,9 +133,9 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 	}
 
 	protected void pollExchange(SettingsWrapper settingsWrapper) throws Exception {
-		String server = settingsWrapper.getImapServer();//  "imap.gmx.net";//"192.168.22.3";
-		String username = settingsWrapper.getImapUserName(); // "vjay@gmx.net";//"Beuth05";
-		String password = settingsWrapper.getImapPassword();//"ungumeiu%57";
+		String server = settingsWrapper.getImapServer();
+		String username = settingsWrapper.getImapUserName();
+		String password = settingsWrapper.getImapPassword();
 		String folderName = settingsWrapper.getImapInboxName();
 
 		if (Strings.isNullOrEmpty(server)) {
@@ -147,10 +151,11 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 			throw new Exception("Inbox name not configured.");
 		}
 
-		Properties systemProperties = System.getProperties();
-		systemProperties.setProperty("mail.store.protocol", "imaps");
-		systemProperties.put("mail.imaps.ssl.trust", "*");
-		Session session = Session.getDefaultInstance(systemProperties, null);
+		Properties properties = new Properties();
+		properties.putAll(System.getProperties());
+		properties.setProperty("mail.store.protocol", "imaps");
+		properties.put("mail.imaps.ssl.trust", "*");
+		Session session = Session.getDefaultInstance(properties, null);
 		Store store = session.getStore("imaps");
 		try {
 			logger.info("Connecting to IMAP server: " + server);
@@ -188,18 +193,9 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 					 * The messages are not loaded entirely and contain hardly
 					 * any information. The Message-instances are mostly empty.
 					 */
-					long beforeTime;//= System.nanoTime();
+
 					Message[] messages = folder.getMessagesByUID(start, end);
 					totalNumberOfMessages += messages.length;
-					//					logger.info("found " + messages.length + " messages (took " + (System.nanoTime() - beforeTime) / 1000 / 1000 + " ms)");
-
-					//					for (Message message : messages) {
-					//						boolean isRead = message.isSet(Flags.Flag.SEEN);
-					//
-					//						if (!isRead) {
-					//							processMessage(message);
-					//						}
-					//					}
 
 					/*
 					 * If we would access e.g. the subject of a message right away
@@ -213,7 +209,7 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 					 * for all messages with one single request to save some
 					 * time here.
 					 */
-					beforeTime = System.nanoTime();
+
 					// this instance could be created outside the loop as well
 					FetchProfile metadataProfile = new FetchProfile();
 					// load flags, such as SEEN (read), ANSWERED, DELETED, ...
@@ -223,19 +219,22 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 					// we could as well load the entire messages (headers and body, including all "attachments")
 					// metadataProfile.add(IMAPFolder.FetchProfileItem.MESSAGE);
 					folder.fetch(messages, metadataProfile);
-					//					logger.info("loaded messages (took " + (System.nanoTime() - beforeTime) / 1000 / 1000 + " ms)");
 
 					/*
 					 * Now that we have all the information we need, let's print some mails.
 					 * This should be wicked fast.
 					 */
-					beforeTime = System.nanoTime();
+
 					for (int i = messages.length - 1; i >= 0; i--) {
 						Message message = messages[i];
-						//						long uid = folder.getUID(message);
 						boolean isRead = message.isSet(Flags.Flag.SEEN);
 						if (!isRead) {
-							processMessage(settingsWrapper, message);
+							try {
+								processMessage(settingsWrapper, message);
+							} catch (Exception e) {
+								logger.error("Error processing message " + message, e);
+								message.setFlag(Flags.Flag.SEEN, false); // set is as unseen to be processed again
+							}
 						}
 					}
 				}
@@ -252,119 +251,157 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 	}
 
 	protected void processMessage(SettingsWrapper settingsWrapper, Message message) throws Exception {
+
+		// Retrieving and checking the issue service
+
+		IssueService issueService = ComponentAccessor.getIssueService();
+		if (issueService == null) {
+			throw new Exception("Could not retrieve IssueService.");
+		}
+
+		// Retrieving and checking the project
+
 		Project project = ComponentAccessor.getProjectManager().getProjectByCurrentKeyIgnoreCase(settingsWrapper.getProjectName());
 		if (project == null) {
-			logger.error("Did not find project with the name " + settingsWrapper.getProjectName());
+			StringBuilder projectNames = new StringBuilder();
 			for (Project project2 : ComponentAccessor.getProjectManager().getProjectObjects()) {
-				logger.error(project2.getName());
-			}
-		} else {
-			MessageWrapper messageWrapper = new MessageWrapper(message);
-			String subject = message.getSubject();
-			if (Strings.isNullOrEmpty(subject)) {
-				subject = "Mail had empty subject.";
-			}
-			String bodyText = messageWrapper.getBodyText();
-			if (Strings.isNullOrEmpty(bodyText)) {
-				bodyText = "Mail had empty body.";
-			}
-			logger.info("Processing message: " + subject + " from: " + Joiner.on(',').join(message.getFrom()));
-			logger.info("Body: " + bodyText);
-
-			boolean success = false;
-
-			IssueService issueService = ComponentAccessor.getIssueService();
-
-			JiraAuthenticationContext jAC = ComponentAccessor.getJiraAuthenticationContext();
-			jAC.setLoggedInUser(ComponentAccessor.getUserManager().getUser(settingsWrapper.getIssueOwner()));
-			ApplicationUser user = jAC.getLoggedInUser();
-			logger.info("Creating with user: " + user);
-
-			//			try {
-			//				IssueResult i = ComponentAccessor.getIssueService().getIssue(user, "TEST-1");
-			//				System.out.println("i: " + i);
-			//				System.out.println("i: " + i.getIssue());
-			//				System.out.println("i issuetypeid: " + i.getIssue().getIssueTypeId());
-			//				System.out.println("i assid: " + i.getIssue().getAssigneeId());
-			//				System.out.println("i repid: " + i.getIssue().getReporterId());
-			//				System.out.println("i projectid: " + i.getIssue().getProjectId());
-			//				System.out.println("i sid: " + i.getIssue().getStatusId());
-			//				System.out.println("i pid: " + i.getIssue().getPriority().getId());
-			//			} catch (Exception e) {
-			//			}
-
-			Collection<IssueType> issueTypes = ComponentAccessor.getConstantsManager().getAllIssueTypeObjects();
-			IssueType issueType = issueTypes.iterator().next();
-			for (IssueType issueType2 : issueTypes) {
-				if (settingsWrapper.getIssueType().equalsIgnoreCase(issueType2.getName())) {
-					issueType = issueType2;
+				if (projectNames.length() > 0) {
+					projectNames.append(", ");
 				}
-				logger.info("Available issue type: " + issueType2.getId() + " - " + issueType2.getName() + " - " + issueType2.getDescription());
+				projectNames.append(project2.getName());
 			}
+			throw new Exception("Did not find project with the name: " + settingsWrapper.getProjectName() + ", available names are: " + projectNames);
+		}
 
-			logger.info("Using issue type: " + issueType.getId() + " - " + issueType.getName() + " - " + issueType.getDescription());
+		// Retrieving and checking the user to create the tickets with
 
-			Collection<Status> statusTypes = ComponentAccessor.getConstantsManager().getStatusObjects();
-			Status status = statusTypes.iterator().next();
-			for (Status status2 : statusTypes) {
-				if (settingsWrapper.getIssueStatus().equalsIgnoreCase(status2.getName())) {
-					status = status2;
-				}
-				logger.info("Available status type: " + status2.getId() + " - " + status2.getName() + " - " + status2.getDescription());
+		JiraAuthenticationContext jiraAuthenticationContext = ComponentAccessor.getJiraAuthenticationContext();
+		if (jiraAuthenticationContext == null) {
+			throw new Exception("Could not retrieve JiraAuthenticationContext.");
+		}
+		jiraAuthenticationContext.setLoggedInUser(ComponentAccessor.getUserManager().getUser(settingsWrapper.getIssueOwner()));
+		ApplicationUser user = jiraAuthenticationContext.getLoggedInUser();
+		if (user == null) {
+			throw new Exception("Could not login user " + settingsWrapper.getIssueOwner() + ".");
+		}
+		logger.info("Creating issue with user: " + user);
+
+		// Retrieving and checking the configured issue type
+
+		Collection<IssueType> issueTypes = ComponentAccessor.getConstantsManager().getAllIssueTypeObjects();
+		IssueType issueType = issueTypes.iterator().next();
+		for (IssueType issueType2 : issueTypes) {
+			if (settingsWrapper.getIssueType().equalsIgnoreCase(issueType2.getName())) {
+				issueType = issueType2;
 			}
+			logger.info("Available issue type: " + issueType2.getId() + " - " + issueType2.getName() + " - " + issueType2.getDescription());
+		}
+		if (issueType == null) {
+			throw new Exception("Error, issue type " + settingsWrapper.getIssueType() + " does not exist.");
+		}
+		logger.info("Using issue type: " + issueType.getId() + " - " + issueType.getName() + " - " + issueType.getDescription());
 
-			logger.info("Using status type: " + status.getId() + " - " + status.getName() + " - " + status.getDescription());
+		// Retrieving and checking the configured status type
 
-			IssueInputParameters issueInputParameters = issueService.newIssueInputParameters().setProjectId(project.getId()).setSummary(subject).setDescription(bodyText).setIssueTypeId(issueType.getId()).setReporterId(user.getUsername()).setAssigneeId(user.getUsername()).setStatusId(status.getId());
+		Collection<Status> statusTypes = ComponentAccessor.getConstantsManager().getStatusObjects();
+		Status status = statusTypes.iterator().next();
+		for (Status status2 : statusTypes) {
+			if (settingsWrapper.getIssueStatus().equalsIgnoreCase(status2.getName())) {
+				status = status2;
+			}
+			logger.info("Available status type: " + status2.getId() + " - " + status2.getName() + " - " + status2.getDescription());
+		}
+		if (status == null) {
+			throw new Exception("Error, status type " + settingsWrapper.getIssueStatus() + " does not exist.");
+		}
+		logger.info("Using status type: " + status.getId() + " - " + status.getName() + " - " + status.getDescription());
 
-			CreateValidationResult createValidationResult = issueService.validateCreate(user, issueInputParameters);
-			logger.info("createValidationResult: " + createValidationResult.isValid());
-			if (createValidationResult.isValid()) {
-				IssueResult createResult = issueService.create(user, createValidationResult);
-				logger.info("createResult: " + createResult.isValid());
-				if (createResult.isValid()) {
-					Issue issue = createResult.getIssue();
-					logger.info("Issue created with Id: " + issue.getId());
-					success = true;
-				} else {
-					logger.error("Creation of issue failed");
-					for (Reason reason : createResult.getErrorCollection().getReasons()) {
-						logger.error("Reason: " + reason);
-					}
-					if (createResult.hasWarnings()) {
-						for (String reason : createResult.getWarningCollection().getWarnings()) {
-							logger.error("Warning: " + reason);
+		// Processing the message
+
+		MessageWrapper messageWrapper = new MessageWrapper(message);
+		String subject = message.getSubject();
+		if (Strings.isNullOrEmpty(subject)) {
+			subject = "Mail had empty subject.";
+		}
+		String bodyText = messageWrapper.getBodyText();
+		if (Strings.isNullOrEmpty(bodyText)) {
+			bodyText = "Mail had empty body.";
+		}
+		logger.info("Processing message: " + subject + " from: " + Joiner.on(',').join(message.getFrom()));
+		logger.info("Body: " + bodyText);
+
+		// Validating the issue
+
+		CreateValidationResult createValidationResult = issueService.validateCreate(user, issueService.newIssueInputParameters().setProjectId(project.getId()).setSummary(subject).setDescription(bodyText).setIssueTypeId(issueType.getId()).setReporterId(user.getUsername()).setAssigneeId(user.getUsername()).setStatusId(status.getId()));
+		logger.info("createValidationResult: " + createValidationResult.isValid());
+		if (createValidationResult.isValid()) {
+
+			// Creating the issue
+			IssueResult createResult = issueService.create(user, createValidationResult);
+			logger.info("createResult: " + createResult.isValid());
+			if (createResult.isValid()) {
+				Issue issue = createResult.getIssue();
+				logger.info("Issue created with Id: " + issue.getId());
+
+				try {
+
+					// Attaching files if necessary
+					Map<File, String> attachments = messageWrapper.getAttachments();
+					if (attachments.size() > 0) {
+						for (Entry<File, String> attachment : attachments.entrySet()) {
+							logger.info("Adding attachment: " + attachment.getValue());
+							ComponentAccessor.getAttachmentManager().createAttachment(new CreateAttachmentParamsBean.Builder(attachment.getKey(), attachment.getValue(), "application/octet-stream", user, issue).build());
+							attachment.getKey().delete();
 						}
 					}
-					for (String error : createResult.getErrorCollection().getErrorMessages()) {
-						logger.error("Error: " + error);
+
+					// Success, we remove the message if configured to do so
+					if (settingsWrapper.isImapDeleteMessage()) {
+						message.setFlag(Flags.Flag.DELETED, true);
 					}
+
+					// Done
+
+				} catch (Exception e) {
+					logger.error("Error adding attachment, trying to removing issue again.", e);
+					try {
+						DeleteValidationResult deleteValidationResult = issueService.validateDelete(user, issue.getId());
+						issueService.delete(user, deleteValidationResult);
+					} catch (Exception e2) {
+						logger.error("Remove failed.", e2);
+					}
+					throw e;
 				}
+
 			} else {
-				logger.error("Validation of issue failed");
-				for (Reason reason : createValidationResult.getErrorCollection().getReasons()) {
+				logger.error("Creation of issue failed.");
+				for (Reason reason : createResult.getErrorCollection().getReasons()) {
 					logger.error("Reason: " + reason);
 				}
-				if (createValidationResult.hasWarnings()) {
-					for (String reason : createValidationResult.getWarningCollection().getWarnings()) {
+				if (createResult.hasWarnings()) {
+					for (String reason : createResult.getWarningCollection().getWarnings()) {
 						logger.error("Warning: " + reason);
 					}
 				}
-				for (String error : createValidationResult.getErrorCollection().getErrorMessages()) {
+				for (String error : createResult.getErrorCollection().getErrorMessages()) {
 					logger.error("Error: " + error);
 				}
-				logger.error("Properties: " + Joiner.on(';').withKeyValueSeparator("=").join(createValidationResult.getProperties()));
-				logger.error("FieldValues: " + Joiner.on(';').withKeyValueSeparator("=").join(createValidationResult.getFieldValuesHolder()));
+				throw new Exception("Creation of issue failed.");
 			}
-
-			if (success) {
-				if (settingsWrapper.isImapDeleteMessage()) {
-					message.setFlag(Flags.Flag.DELETED, true);
+		} else {
+			logger.error("Validation of issue failed");
+			for (Reason reason : createValidationResult.getErrorCollection().getReasons()) {
+				logger.error("Reason: " + reason);
+			}
+			if (createValidationResult.hasWarnings()) {
+				for (String reason : createValidationResult.getWarningCollection().getWarnings()) {
+					logger.error("Warning: " + reason);
 				}
-			} else {
-				message.setFlag(Flags.Flag.SEEN, false);
 			}
-
+			for (String error : createValidationResult.getErrorCollection().getErrorMessages()) {
+				logger.error("Error: " + error);
+			}
+			throw new Exception("Validation of issue failed.");
 		}
 
 	}

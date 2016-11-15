@@ -1,11 +1,23 @@
 package de.equalIT.jiraExchangeConnector.impl;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Map;
+
 import javax.mail.BodyPart;
 import javax.mail.Message;
+import javax.mail.MessagingException;
+import javax.mail.Multipart;
+import javax.mail.Part;
 import javax.mail.internet.MimeMultipart;
 
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
+
+import com.google.common.base.Strings;
+import com.google.common.collect.Maps;
 
 public class MessageWrapper {
 	protected static final Logger logger = LogManager.getLogger("atlassian.plugin");
@@ -17,19 +29,23 @@ public class MessageWrapper {
 	}
 
 	public String getBodyText() throws Exception {
-		String result = "";
-		if (message.isMimeType("text/plain")) {
-			result = message.getContent().toString();
-			logger.info("Mail is plain");
-		} else if (message.isMimeType("multipart/*")) {
-			MimeMultipart mimeMultipart = (MimeMultipart) message.getContent();
-			result = getTextFromMimeMultipart(mimeMultipart);
-			logger.info("Mail is multipart");
-		} else {
-			result = org.jsoup.Jsoup.parse(message.getContent().toString()).text();
-			logger.info("Mail is probably html mail");
+		try {
+			String result;
+			if (message.isMimeType("text/plain")) {
+				result = message.getContent().toString();
+				logger.info("Mail is plain");
+			} else if (message.isMimeType("multipart/*")) {
+				MimeMultipart mimeMultipart = (MimeMultipart) message.getContent();
+				result = getTextFromMimeMultipart(mimeMultipart);
+				logger.info("Mail is multipart");
+			} else {
+				result = org.jsoup.Jsoup.parse(message.getContent().toString()).text();
+				logger.info("Mail is probably html mail");
+			}
+			return result;
+		} catch (Exception e) {
+			throw new Exception("Could not get mailbody because: ", e);
 		}
-		return result;
 	}
 
 	private String getTextFromMimeMultipart(MimeMultipart mimeMultipart) throws Exception {
@@ -48,6 +64,37 @@ public class MessageWrapper {
 				result = result + getTextFromMimeMultipart((MimeMultipart) bodyPart.getContent());
 			}
 		}
+		return result;
+	}
+
+	public Map<File, String> getAttachments() throws MessagingException, IOException {
+		Map<File, String> result = Maps.newHashMap();
+		Multipart multipart = (Multipart) message.getContent();
+
+		for (int i = 0; i < multipart.getCount(); i++) {
+			BodyPart bodyPart = multipart.getBodyPart(i);
+			if (!Part.ATTACHMENT.equalsIgnoreCase(bodyPart.getDisposition()) || Strings.isNullOrEmpty(bodyPart.getFileName())) {
+				continue; // dealing with attachments only
+			}
+			InputStream is = bodyPart.getInputStream();
+			try {
+				File tmpFile = File.createTempFile("jiraattachment", "jiraattachment");
+				FileOutputStream fos = new FileOutputStream(tmpFile);
+				try {
+					byte[] buf = new byte[4096];
+					int bytesRead;
+					while ((bytesRead = is.read(buf)) != -1) {
+						fos.write(buf, 0, bytesRead);
+					}
+				} finally {
+					fos.close();
+				}
+				result.put(tmpFile, bodyPart.getFileName());
+			} finally {
+				is.close();
+			}
+		}
+
 		return result;
 	}
 }

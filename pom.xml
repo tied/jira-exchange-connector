@@ -228,7 +228,7 @@
                         <Import-Package>
                         	org.jsoup.*;resolution:="optional",
                         	com.google.gson.*;resolution:="optional",
-                            com.sun.mail.imap.*;resolution:="optional",
+                            com.sun.mail.*;resolution:="optional",
                             javax.mail.*;resolution:="optional",
                             sun.security.util.*;resolution:="optional",
                             org.springframework.osgi.*;resolution:="optional",
