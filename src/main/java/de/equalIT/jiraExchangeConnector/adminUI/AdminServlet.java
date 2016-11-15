@@ -63,7 +63,7 @@ public class AdminServlet extends HttpServlet {
 		if (Boolean.parseBoolean(request.getParameter("config"))) {
 			SettingsWrapper settingsWrapper = new SettingsWrapper(pluginSettingsFactory);
 			Map<String, Object> result = Maps.newHashMap();
-			result.put("active", settingsWrapper.isActive());
+			//			result.put("active", settingsWrapper.isActive());
 			result.put("imapDeleteMessage", settingsWrapper.isImapDeleteMessage());
 			result.put("imapServer", settingsWrapper.getImapServer());
 			result.put("imapUserName", settingsWrapper.getImapUserName());
@@ -92,7 +92,7 @@ public class AdminServlet extends HttpServlet {
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		Map<String, Object> config = new Gson().fromJson(request.getReader(), HashMap.class);
 		SettingsWrapper settingsWrapper = new SettingsWrapper(pluginSettingsFactory);
-		settingsWrapper.setActive((Boolean) config.get("active"));
+		//		settingsWrapper.setActive((Boolean) config.get("active"));
 		settingsWrapper.setImapDeleteMessage((Boolean) config.get("imapDeleteMessage"));
 		settingsWrapper.setImapServer((String) config.get("imapServer"));
 		settingsWrapper.setImapUserName((String) config.get("imapUserName"));

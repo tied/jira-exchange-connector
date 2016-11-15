@@ -10,7 +10,7 @@ import de.equalIT.jiraExchangeConnector.impl.MyPluginComponentImpl;
 public class MyComponentUnitTest {
 	@Test
 	public void testMyName() {
-		MyPluginComponent component = new MyPluginComponentImpl(null, null);
-		assertEquals("names do not match!", "myComponent", component.getName());
+		MyPluginComponent component = new MyPluginComponentImpl(null, null, null);
+		assertEquals("names do not match!", "Jira Exchange Connector Plugin", component.getName());
 	}
 }

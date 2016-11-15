@@ -27,6 +27,7 @@ import com.atlassian.jira.project.Project;
 import com.atlassian.jira.security.JiraAuthenticationContext;
 import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.jira.util.ErrorCollection.Reason;
+import com.atlassian.plugin.event.PluginEventManager;
 import com.atlassian.plugin.spring.scanner.annotation.export.ExportAsService;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.atlassian.sal.api.ApplicationProperties;
@@ -48,56 +49,87 @@ public class MyPluginComponentImpl implements Runnable, MyPluginComponent {
 	@ComponentImport
 	protected PluginSettingsFactory pluginSettingsFactory;
 
-	protected static Thread checkMailThread;
+	@ComponentImport
+	protected PluginEventManager pluginEventManager;
+
+	protected Thread checkMailThread;
 
 	@Inject
-	public MyPluginComponentImpl(final ApplicationProperties applicationProperties, final PluginSettingsFactory pluginSettingsFactory) {
+	public MyPluginComponentImpl(final PluginEventManager pluginEventManager, final ApplicationProperties applicationProperties, final PluginSettingsFactory pluginSettingsFactory) {
+		this.pluginEventManager = pluginEventManager;
 		this.applicationProperties = applicationProperties;
 		this.pluginSettingsFactory = pluginSettingsFactory;
 
-		logger.info("Jira Exchange Connector plugin started.");
+		logger.info("-------------------------------------------");
+		logger.info(getName() + " initialized.");
 
-		// We do not support starting and stopping for now, so we start one time and that is it
+		if (pluginEventManager != null) {
+			logger.info("Registering for plugin events.");
+			PluginListener.install(pluginEventManager, "de.equalIT.jiraExchangeConnector.jira-exchange-connector", new Runnable() {
+
+				@Override
+				public void run() {
+					start();
+				}
+			}, new Runnable() {
+
+				@Override
+				public void run() {
+					stop();
+				}
+			});
+		}
+
+		start();
+		logger.info("-------------------------------------------");
+	}
+
+	public void start() {
 		if (checkMailThread == null) {
 			checkMailThread = new Thread(this);
 			checkMailThread.setName("CheckMailThread");
 			checkMailThread.setDaemon(false);
 			checkMailThread.start();
+			logger.info(getName() + " started.");
+		}
+	}
+
+	public void stop() {
+		if (checkMailThread != null) {
+			logger.info(getName() + " stopped.");
+			checkMailThread.interrupt();
+			checkMailThread = null;
 		}
 	}
 
 	@Override
 	public String getName() {
 		if (null != applicationProperties) {
-			return "myComponent:" + applicationProperties.getDisplayName();
+			return applicationProperties.getDisplayName();
 		}
 
-		return "myComponent";
+		return "Jira Exchange Connector Plugin";
 	}
 
 	@Override
 	public void run() {
-		logger.info("CheckMailThread starting.");
+		logger.info(getName() + "Starting.");
 		try {
 			while (true) {
 				try {
 					SettingsWrapper settingsWrapper = new SettingsWrapper(pluginSettingsFactory);
 
-					if (settingsWrapper.isActive()) {
-						logger.info("Starting to poll Exchange");
-						pollExchange(settingsWrapper);
-					} else {
-						logger.info("Not starting to poll Exchange, plugin is disabled.");
-					}
+					logger.info(getName() + "Polling Exchange.");
+					pollExchange(settingsWrapper);
 				} catch (Exception e) {
-					logger.error("Error polling Exchange.", e);
+					logger.error(getName() + "Error polling Exchange.", e);
 				}
 				Thread.sleep(10000);
 			}
 		} catch (InterruptedException e) {
 			// eat
 		}
-		logger.info("CheckMailThread stopping.");
+		logger.info(getName() + "Stopping.");
 	}
 
 	protected void pollExchange(SettingsWrapper settingsWrapper) throws Exception {
@@ -105,6 +137,19 @@ public class MyPluginComponentImpl implements Runnable, MyPluginComponent {
 		String username = settingsWrapper.getImapUserName(); // "vjay@gmx.net";//"Beuth05";
 		String password = settingsWrapper.getImapPassword();//"ungumeiu%57";
 		String folderName = settingsWrapper.getImapInboxName();
+
+		if (Strings.isNullOrEmpty(server)) {
+			throw new Exception("IMAP server not configured.");
+		}
+		if (Strings.isNullOrEmpty(username)) {
+			throw new Exception("User name not configured.");
+		}
+		if (Strings.isNullOrEmpty(password)) {
+			throw new Exception("Password not configured.");
+		}
+		if (Strings.isNullOrEmpty(folderName)) {
+			throw new Exception("Inbox name not configured.");
+		}
 
 		Properties systemProperties = System.getProperties();
 		systemProperties.setProperty("mail.store.protocol", "imaps");

@@ -25,7 +25,6 @@
 						function(config) { // when the configuration is
 							// returned...
 							// ...populate the form.
-							$("#active").prop('checked', config.active);
 							$("#imapServer").val(config.imapServer);
 							$("#imapUserName").val(config.imapUserName);
 							$("#imapPassword").val(config.imapPassword);
@@ -38,9 +37,7 @@
 									config.imapDeleteMessage);
 
 							function updateConfig() {
-								var data = '{ "active": '
-										+ AJS.$("#active").prop("checked")
-										+ ', "imapDeleteMessage": '
+								var data = '{"imapDeleteMessage": '
 										+ AJS.$("#imapDeleteMessage").prop(
 												"checked")
 										+ ', "imapServer": "'

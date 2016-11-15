@@ -37,13 +37,13 @@ public class SettingsWrapper {
 		}
 	}
 
-	public boolean isActive() {
-		return getBoolean("active", false);
-	}
-
-	public void setActive(boolean active) {
-		set("active", active);
-	}
+	//	public boolean isActive() {
+	//		return getBoolean("active", false);
+	//	}
+	//
+	//	public void setActive(boolean active) {
+	//		set("active", active);
+	//	}
 
 	public boolean isImapDeleteMessage() {
 		return getBoolean("imapDeleteMessage", false);

@@ -7,10 +7,6 @@
   <body>
     <form id="admin" class="aui">
       <div class="field-group">
-        <label for="name">$i18n.getText("de.equalIT.jiraExchangeConnector.admin.active.label")</label>
-        <input type="checkbox" id="active" name="active" class="checkbox">
-      </div>
-      <div class="field-group">
         <label for="name">$i18n.getText("de.equalIT.jiraExchangeConnector.admin.imapServer.label")</label>
         <input type="text" id="imapServer" name="imapServer" class="text">
       </div>
