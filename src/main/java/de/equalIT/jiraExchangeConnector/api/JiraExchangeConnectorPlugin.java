@@ -1,6 +1,6 @@
 package de.equalIT.jiraExchangeConnector.api;
 
-public interface MyPluginComponent
+public interface JiraExchangeConnectorPlugin
 {
     String getName();
 }

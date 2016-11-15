@@ -36,11 +36,11 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.sun.mail.imap.IMAPFolder;
 
-import de.equalIT.jiraExchangeConnector.api.MyPluginComponent;
+import de.equalIT.jiraExchangeConnector.api.JiraExchangeConnectorPlugin;
 
-@ExportAsService({MyPluginComponent.class})
+@ExportAsService({JiraExchangeConnectorPlugin.class})
 @Named("myPluginComponent")
-public class MyPluginComponentImpl implements Runnable, MyPluginComponent {
+public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeConnectorPlugin {
 	protected static final Logger logger = LogManager.getLogger("atlassian.plugin");
 
 	@ComponentImport
@@ -55,7 +55,7 @@ public class MyPluginComponentImpl implements Runnable, MyPluginComponent {
 	protected Thread checkMailThread;
 
 	@Inject
-	public MyPluginComponentImpl(final PluginEventManager pluginEventManager, final ApplicationProperties applicationProperties, final PluginSettingsFactory pluginSettingsFactory) {
+	public JiraExchangeConnectorPluginImpl(final PluginEventManager pluginEventManager, final ApplicationProperties applicationProperties, final PluginSettingsFactory pluginSettingsFactory) {
 		this.pluginEventManager = pluginEventManager;
 		this.applicationProperties = applicationProperties;
 		this.pluginSettingsFactory = pluginSettingsFactory;
@@ -104,10 +104,6 @@ public class MyPluginComponentImpl implements Runnable, MyPluginComponent {
 
 	@Override
 	public String getName() {
-		if (null != applicationProperties) {
-			return applicationProperties.getDisplayName();
-		}
-
 		return "Jira Exchange Connector Plugin";
 	}
 
@@ -119,10 +115,10 @@ public class MyPluginComponentImpl implements Runnable, MyPluginComponent {
 				try {
 					SettingsWrapper settingsWrapper = new SettingsWrapper(pluginSettingsFactory);
 
-					logger.info(getName() + "Polling Exchange.");
+					logger.info("Polling IMAP server.");
 					pollExchange(settingsWrapper);
 				} catch (Exception e) {
-					logger.error(getName() + "Error polling Exchange.", e);
+					logger.error("Error polling IMAP server.", e);
 				}
 				Thread.sleep(10000);
 			}

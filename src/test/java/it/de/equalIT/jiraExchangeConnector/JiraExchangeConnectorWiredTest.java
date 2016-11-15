@@ -8,14 +8,14 @@ import org.junit.runner.RunWith;
 import com.atlassian.plugins.osgi.test.AtlassianPluginsTestRunner;
 import com.atlassian.sal.api.ApplicationProperties;
 
-import de.equalIT.jiraExchangeConnector.api.MyPluginComponent;
+import de.equalIT.jiraExchangeConnector.api.JiraExchangeConnectorPlugin;
 
 @RunWith(AtlassianPluginsTestRunner.class)
-public class MyComponentWiredTest {
+public class JiraExchangeConnectorWiredTest {
 	private final ApplicationProperties applicationProperties;
-	private final MyPluginComponent myPluginComponent;
+	private final JiraExchangeConnectorPlugin myPluginComponent;
 
-	public MyComponentWiredTest(ApplicationProperties applicationProperties, MyPluginComponent myPluginComponent) {
+	public JiraExchangeConnectorWiredTest(ApplicationProperties applicationProperties, JiraExchangeConnectorPlugin myPluginComponent) {
 		this.applicationProperties = applicationProperties;
 		this.myPluginComponent = myPluginComponent;
 	}
