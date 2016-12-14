@@ -3,11 +3,24 @@ package de.equalIT.jiraExchangeConnector.impl;
 import com.atlassian.sal.api.pluginsettings.PluginSettings;
 import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
 
+/**
+ * This class wrapps the settings that are available for the plugin. The settings are then stored with the help of
+ * Jira's plugin settings API. All settings are prefixed with PLUGIN_STORAGE_KEY.
+ * 
+ * @author Volker Gronau
+ *
+ */
 public class SettingsWrapper {
 	private static final String PLUGIN_STORAGE_KEY = "de.equalIT.jiraExchangeConnector.";
 
 	protected PluginSettings pluginSettings;
 
+	/**
+	 * Creates an instance of the SettingsWrapper.
+	 * 
+	 * @param pluginSettingsFactory
+	 *            Jira's Plugin Settings Factory
+	 */
 	public SettingsWrapper(PluginSettingsFactory pluginSettingsFactory) {
 		super();
 		this.pluginSettings = pluginSettingsFactory.createSettingsForKey(PLUGIN_STORAGE_KEY);
@@ -36,14 +49,6 @@ public class SettingsWrapper {
 			pluginSettings.remove(key);
 		}
 	}
-
-	//	public boolean isActive() {
-	//		return getBoolean("active", false);
-	//	}
-	//
-	//	public void setActive(boolean active) {
-	//		set("active", active);
-	//	}
 
 	public boolean isImapDeleteMessage() {
 		return getBoolean("imapDeleteMessage", false);

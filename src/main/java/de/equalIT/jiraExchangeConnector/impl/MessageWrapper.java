@@ -19,8 +19,14 @@ import org.apache.log4j.Logger;
 import com.google.common.base.Strings;
 import com.google.common.collect.Maps;
 
+/**
+ * This is a helper class which aids in extracting body text and attachments from mails.
+ * 
+ * @author Volker Gronau
+ *
+ */
 public class MessageWrapper {
-	protected static final Logger logger = LogManager.getLogger("atlassian.plugin");
+	protected static final Logger logger = LogManager.getLogger("atlassian.plugin.jiraExchangeConnectorPlugin.MessageWrapper");
 	protected Message message;
 
 	public MessageWrapper(Message message) {
@@ -28,6 +34,10 @@ public class MessageWrapper {
 		this.message = message;
 	}
 
+	/**
+	 * Returns the body text of a mail.
+	 * 
+	 */
 	public String getBodyText() throws Exception {
 		try {
 			String result;
@@ -67,6 +77,13 @@ public class MessageWrapper {
 		return result;
 	}
 
+	/**
+	 * Returns a map of all attachments. All files are written to a temporary directory and need to be deleted after
+	 * use.
+	 * 
+	 * @throws MessagingException
+	 * @throws IOException
+	 */
 	public Map<File, String> getAttachments() throws MessagingException, IOException {
 		Map<File, String> result = Maps.newHashMap();
 		Multipart multipart = (Multipart) message.getContent();

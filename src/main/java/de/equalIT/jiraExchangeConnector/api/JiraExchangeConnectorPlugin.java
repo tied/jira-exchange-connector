@@ -1,6 +1,11 @@
 package de.equalIT.jiraExchangeConnector.api;
 
-public interface JiraExchangeConnectorPlugin
-{
-    String getName();
+/**
+ * The interface our plugin implementation has to fulfill.
+ * 
+ * @author Volker Gronau
+ *
+ */
+public interface JiraExchangeConnectorPlugin {
+	String getName();
 }

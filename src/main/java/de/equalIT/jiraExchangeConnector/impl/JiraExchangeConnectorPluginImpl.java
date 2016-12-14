@@ -42,10 +42,21 @@ import com.sun.mail.imap.IMAPFolder;
 
 import de.equalIT.jiraExchangeConnector.api.JiraExchangeConnectorPlugin;
 
+/**
+ * This class contains the core functionality. It initializes the plugin, polls Exchange and processes the mails.
+ * 
+ * @author Volker Gronau
+ *
+ */
 @ExportAsService({JiraExchangeConnectorPlugin.class})
 @Named("JiraExchangeConnectorPluginComponent")
 public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeConnectorPlugin {
-	protected static final Logger logger = LogManager.getLogger("atlassian.plugin");
+
+	/**
+	 * We use standard Jira logging (Log4j). The advantage is, all logging is configured in Jira. The disadvantage is,
+	 * all logging is configured in Jira.
+	 */
+	protected static final Logger logger = LogManager.getLogger("atlassian.plugin.jiraExchangeConnectorPlugin.JiraExchangeConnectorPluginImpl");
 
 	@ComponentImport
 	private final ApplicationProperties applicationProperties;
@@ -58,6 +69,11 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 
 	protected Thread checkMailThread;
 
+	/**
+	 * The constructor is called by Jira, this is the entry point of our plugin. All the parameters are injected
+	 * automatically. You can add other Jira components to it, they will be automatically injected.
+	 * 
+	 */
 	@Inject
 	public JiraExchangeConnectorPluginImpl(final PluginEventManager pluginEventManager, final ApplicationProperties applicationProperties, final PluginSettingsFactory pluginSettingsFactory) {
 		this.pluginEventManager = pluginEventManager;
@@ -111,9 +127,12 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 		return "Jira Exchange Connector Plugin";
 	}
 
+	/**
+	 * Runs in the context of "checkMailThread". Calls the function "pollExchange" every 10 seconds.
+	 */
 	@Override
 	public void run() {
-		logger.info(getName() + "Starting.");
+		logger.info(getName() + " Starting.");
 		try {
 			while (true) {
 				try {
@@ -129,10 +148,17 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 		} catch (InterruptedException e) {
 			// eat
 		}
-		logger.info(getName() + "Stopping.");
+		logger.info(getName() + " Stopping.");
 	}
 
+	/**
+	 * Checks the exchange server for new mails and calls the function "processMessage" for every unread mail.
+	 * 
+	 * @throws Exception
+	 */
 	protected void pollExchange(SettingsWrapper settingsWrapper) throws Exception {
+
+		// Read all settings an throw exception if something is not configured.
 		String server = settingsWrapper.getImapServer();
 		String username = settingsWrapper.getImapUserName();
 		String password = settingsWrapper.getImapPassword();
@@ -151,18 +177,20 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 			throw new Exception("Inbox name not configured.");
 		}
 
+		// Initialize javax.mail
 		Properties properties = new Properties();
 		properties.putAll(System.getProperties());
-		properties.setProperty("mail.store.protocol", "imaps");
-		properties.put("mail.imaps.ssl.trust", "*");
+		properties.setProperty("mail.store.protocol", "imaps"); // we want to use imaps(ecure)
+		properties.put("mail.imaps.ssl.trust", "*"); // We allow self signed certificates
+
 		Session session = Session.getDefaultInstance(properties, null);
 		Store store = session.getStore("imaps");
 		try {
 			logger.info("Connecting to IMAP server: " + server);
 			store.connect(server, username, password);
 
+			// we open the configured inbox folder
 			IMAPFolder folder = (IMAPFolder) store.getFolder(folderName);
-
 			if (folder == null) {
 				throw new Exception("Did not find folder " + folderName);
 			}
@@ -175,10 +203,7 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 				}
 
 				/*
-				 * Now we fetch the message from the IMAP folder in descending order.
-				 *
-				 * This way the new mails arrive with the first chunks and older mails
-				 * afterwards.
+				 * Now we fetch the messages from the IMAP folder .
 				 */
 				long largestUid = folder.getUIDNext() - 1;
 				int chunkSize = 500;
@@ -201,30 +226,23 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 					 * If we would access e.g. the subject of a message right away
 					 * it would be fetched from the IMAP server lazily.
 					 *
-					 * Fetching the subjects of all messages one by one would
+					 * Fetching the flags of all messages one by one would
 					 * produce many requests to the IMAP server and take too
 					 * much time.
 					 *
-					 * Instead with the following lines we load some information
+					 * Instead with the following lines we load that information
 					 * for all messages with one single request to save some
 					 * time here.
 					 */
 
-					// this instance could be created outside the loop as well
-					FetchProfile metadataProfile = new FetchProfile();
 					// load flags, such as SEEN (read), ANSWERED, DELETED, ...
+					FetchProfile metadataProfile = new FetchProfile();
 					metadataProfile.add(FetchProfile.Item.FLAGS);
-					// also load From, To, Cc, Bcc, ReplyTo, Subject and Date
-					metadataProfile.add(FetchProfile.Item.ENVELOPE);
-					// we could as well load the entire messages (headers and body, including all "attachments")
-					// metadataProfile.add(IMAPFolder.FetchProfileItem.MESSAGE);
 					folder.fetch(messages, metadataProfile);
 
 					/*
-					 * Now that we have all the information we need, let's print some mails.
-					 * This should be wicked fast.
+					 * Now that we have all the information we need, we can iterate over them very fast.
 					 */
-
 					for (int i = messages.length - 1; i >= 0; i--) {
 						Message message = messages[i];
 						boolean isRead = message.isSet(Flags.Flag.SEEN);
@@ -233,7 +251,7 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 								processMessage(settingsWrapper, message);
 							} catch (Exception e) {
 								logger.error("Error processing message " + message, e);
-								message.setFlag(Flags.Flag.SEEN, false); // set is as unseen to be processed again
+								message.setFlag(Flags.Flag.SEEN, false); // set it as unseen to be processed again
 							}
 						}
 					}
@@ -244,22 +262,27 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 				}
 			}
 
-			logger.info("Listed all " + totalNumberOfMessages + " messages (took " + (System.nanoTime() - afterFolderSelectionTime) / 1000 / 1000 + " ms)");
+			logger.info("Processing " + totalNumberOfMessages + " messages (took " + (System.nanoTime() - afterFolderSelectionTime) / 1000 / 1000 + " ms)");
 		} finally {
 			store.close();
 		}
 	}
 
+	/**
+	 * This function creates a Jira issue of a message(email).
+	 * 
+	 * @throws Exception
+	 */
 	protected void processMessage(SettingsWrapper settingsWrapper, Message message) throws Exception {
 
-		// Retrieving and checking the issue service
+		// Retrieving and checking the Jira issue service.
 
 		IssueService issueService = ComponentAccessor.getIssueService();
 		if (issueService == null) {
 			throw new Exception("Could not retrieve IssueService.");
 		}
 
-		// Retrieving and checking the project
+		// Retrieving and checking the project in which the issue should be created.
 
 		Project project = ComponentAccessor.getProjectManager().getProjectByCurrentKeyIgnoreCase(settingsWrapper.getProjectName());
 		if (project == null) {
@@ -273,7 +296,7 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 			throw new Exception("Did not find project with the name: " + settingsWrapper.getProjectName() + ", available names are: " + projectNames);
 		}
 
-		// Retrieving and checking the user to create the tickets with
+		// Retrieving and checking the user to create the tickets with.
 
 		JiraAuthenticationContext jiraAuthenticationContext = ComponentAccessor.getJiraAuthenticationContext();
 		if (jiraAuthenticationContext == null) {
@@ -286,7 +309,7 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 		}
 		logger.info("Creating issue with user: " + user);
 
-		// Retrieving and checking the configured issue type
+		// Retrieving and checking the configured issue type.
 
 		Collection<IssueType> issueTypes = ComponentAccessor.getConstantsManager().getAllIssueTypeObjects();
 		IssueType issueType = issueTypes.iterator().next();
@@ -316,7 +339,7 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 		}
 		logger.info("Using status type: " + status.getId() + " - " + status.getName() + " - " + status.getDescription());
 
-		// Processing the message
+		// Processing the message.
 
 		MessageWrapper messageWrapper = new MessageWrapper(message);
 		String subject = message.getSubject();
@@ -330,13 +353,13 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 		logger.info("Processing message: " + subject + " from: " + Joiner.on(',').join(message.getFrom()));
 		logger.info("Body: " + bodyText);
 
-		// Validating the issue
+		// Validating the issue.
 
 		CreateValidationResult createValidationResult = issueService.validateCreate(user, issueService.newIssueInputParameters().setProjectId(project.getId()).setSummary(subject).setDescription(bodyText).setIssueTypeId(issueType.getId()).setReporterId(user.getUsername()).setAssigneeId(user.getUsername()).setStatusId(status.getId()));
 		logger.info("createValidationResult: " + createValidationResult.isValid());
 		if (createValidationResult.isValid()) {
 
-			// Creating the issue
+			// Creating the issue.
 			IssueResult createResult = issueService.create(user, createValidationResult);
 			logger.info("createResult: " + createResult.isValid());
 			if (createResult.isValid()) {
@@ -345,7 +368,7 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 
 				try {
 
-					// Attaching files if necessary
+					// Attaching files if necessary.
 					Map<File, String> attachments = messageWrapper.getAttachments();
 					if (attachments.size() > 0) {
 						for (Entry<File, String> attachment : attachments.entrySet()) {
@@ -355,12 +378,12 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 						}
 					}
 
-					// Success, we remove the message if configured to do so
+					// Success, we remove the message if configured to do so.
 					if (settingsWrapper.isImapDeleteMessage()) {
 						message.setFlag(Flags.Flag.DELETED, true);
 					}
 
-					// Done
+					// Done.
 
 				} catch (Exception e) {
 					logger.error("Error adding attachment, trying to removing issue again.", e);
