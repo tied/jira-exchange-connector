@@ -371,11 +371,9 @@ public class JiraExchangeConnectorPluginImpl implements Runnable, JiraExchangeCo
 					// Attaching files if necessary.
 					Map<File, String> attachments = messageWrapper.getAttachments();
 					try {
-						if (attachments.size() > 0) {
-							for (Entry<File, String> attachment : attachments.entrySet()) {
-								logger.info("Adding attachment: " + attachment.getValue());
-								ComponentAccessor.getAttachmentManager().createAttachment(new CreateAttachmentParamsBean.Builder(attachment.getKey(), attachment.getValue(), "application/octet-stream", user, issue).build());
-							}
+						for (Entry<File, String> attachment : attachments.entrySet()) {
+							logger.info("Adding attachment: " + attachment.getValue());
+							ComponentAccessor.getAttachmentManager().createAttachment(new CreateAttachmentParamsBean.Builder(attachment.getKey(), attachment.getValue(), "application/octet-stream", user, issue).build());
 						}
 					} finally {
 						// Delete the temporary files
