@@ -86,29 +86,32 @@ public class MessageWrapper {
 	 */
 	public Map<File, String> getAttachments() throws MessagingException, IOException {
 		Map<File, String> result = Maps.newHashMap();
-		Multipart multipart = (Multipart) message.getContent();
 
-		for (int i = 0; i < multipart.getCount(); i++) {
-			BodyPart bodyPart = multipart.getBodyPart(i);
-			if (!Part.ATTACHMENT.equalsIgnoreCase(bodyPart.getDisposition()) || Strings.isNullOrEmpty(bodyPart.getFileName())) {
-				continue; // dealing with attachments only
-			}
-			InputStream is = bodyPart.getInputStream();
-			try {
-				File tmpFile = File.createTempFile("jiraattachment", "jiraattachment");
-				FileOutputStream fos = new FileOutputStream(tmpFile);
-				try {
-					byte[] buf = new byte[4096];
-					int bytesRead;
-					while ((bytesRead = is.read(buf)) != -1) {
-						fos.write(buf, 0, bytesRead);
+		if (message.isMimeType("multipart/*")) {
+			Multipart multipart = (Multipart) message.getContent();
+
+			for (int i = 0; i < multipart.getCount(); i++) {
+				BodyPart bodyPart = multipart.getBodyPart(i);
+				if (Part.ATTACHMENT.equalsIgnoreCase(bodyPart.getDisposition()) && !Strings.isNullOrEmpty(bodyPart.getFileName())) {
+					InputStream is = bodyPart.getInputStream();
+					try {
+						File tmpFile = File.createTempFile("jiraattachment", "jiraattachment");
+						FileOutputStream fos = new FileOutputStream(tmpFile);
+						try {
+							byte[] buf = new byte[4096];
+							int bytesRead;
+							while ((bytesRead = is.read(buf)) != -1) {
+								fos.write(buf, 0, bytesRead);
+							}
+						} finally {
+							fos.close();
+						}
+						result.put(tmpFile, bodyPart.getFileName());
+					} finally {
+						is.close();
 					}
-				} finally {
-					fos.close();
 				}
-				result.put(tmpFile, bodyPart.getFileName());
-			} finally {
-				is.close();
+
 			}
 		}
 
