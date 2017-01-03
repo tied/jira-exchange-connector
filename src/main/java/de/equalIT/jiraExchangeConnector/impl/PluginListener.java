@@ -14,13 +14,31 @@ import com.atlassian.plugin.event.events.PluginUninstalledEvent;
 
 /**
  * Taken from https://answers.atlassian.com/questions/10694/how-to-handle-the-uninstall-event-from-within-a-plugin and
- * modified.
+ * modified. The PluginListener is used to call the runnable start when the plugin is started and the runnable stop,
+ * when the plugin is stopped.
  * 
  * @author Volker Gronau
  * @version 1.0
  *
  */
 public final class PluginListener {
+
+	/**
+	 * Installs a plugin event listener.
+	 * 
+	 * @param pluginEventManager
+	 *            Jira's Plugin Event Manager
+	 * @param moduleKey
+	 *            The identifier of the plugin to listen for events for.
+	 * @param start
+	 *            This runnable is called when the plugin is started.
+	 * @param stop
+	 *            This runnable is called when the plugin is stopped.
+	 */
+	public static void install(PluginEventManager pluginEventManager, String moduleKey, Runnable start, Runnable stop) {
+		pluginEventManager.register(new PluginListener(pluginEventManager, moduleKey, start, stop));
+	}
+
 	private final String myModuleKey;
 	private final Runnable myStart;
 	private final Runnable myStop;
@@ -31,10 +49,6 @@ public final class PluginListener {
 		myModuleKey = moduleKey;
 		myStart = start;
 		myStop = stop;
-	}
-
-	public static void install(PluginEventManager pluginEventManager, String moduleKey, Runnable start, Runnable stop) {
-		pluginEventManager.register(new PluginListener(pluginEventManager, moduleKey, start, stop));
 	}
 
 	public void start() {
